@@ -5,6 +5,7 @@
 ** Pathfinding algorithme
 */
 
+#include <signal.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -93,55 +94,62 @@ int check_linked_room(room_queue_t *queue,
 }
 
 static
-shortest_path_t *retrieve_bfs_shortest_path(shortest_path_t *shortest_path,
-    encountered_room_t *visited, char const *end_room)
+shortest_path_t *shortest_path(char const *start_room, char const *end_room,
+    encountered_room_t *visited)
 {
-    shortest_path_t *path_head = NULL;
-    shortest_path_t *previous_room = NULL;
+    shortest_path_t *shortest_path = malloc(sizeof(shortest_path_t));
+    shortest_path_t *shortest_path_head = shortest_path;
     encountered_room_t *visited_head = visited;
-    encountered_room_t *room_to_check = visited_head;
+    encountered_room_t *tmp = NULL;
 
+    if (shortest_path == NULL)
+        return NULL;
     while (visited != NULL) {
-        if (visited->map == NULL)
-            continue;
-        if (my_strcmp(visited->map->name, end_room) == 0) {
-            shortest_path = malloc(sizeof(shortest_path_t));
-            if (shortest_path == NULL)
-                return NULL;
-            shortest_path->room = visited->map;
-            shortest_path->next = NULL;
-            path_head = shortest_path;
+        if (visited->map == NULL) {
+            visited = visited->next;
             continue;
         }
-        if (path_head != NULL) {
-            if (shortest_path->room->link == NULL)
-                continue;
-            for (size_t i = 0; shortest_path->room->link[i] != NULL; i += 1) {
-                while (room_to_check != NULL) {
-                    if (my_strcmp(shortest_path->room->link[i]->name, room_to_check->map->name) == 0) {
-                        previous_room = malloc(sizeof(shortest_path_t));
-                        if (previous_room == NULL)
-                            return NULL;
-                        previous_room->room = room_to_check->map;
-                        previous_room->next = path_head;
-                        path_head = previous_room;
-                        break;
-                    }
-                    room_to_check = room_to_check->next;
-                }
-                room_to_check = visited_head;
-            }
+        if (my_strcmp(end_room, visited->map->name) == 0
+            && shortest_path->room == NULL) {
+            shortest_path->room = visited->map;
+            visited->map = NULL;
+            visited = visited_head;
+            break;
         }
         visited = visited->next;
     }
-    return path_head;
+    visited = visited_head;
+    if (shortest_path->room == NULL || shortest_path->room->link == NULL) {
+        display_error("Algorith couldn't find the end_room\n");
+        return free(shortest_path), NULL;
+    }
+    for (size_t i = 0; shortest_path->room->link[i] != NULL; i += 1) {
+        while (visited != NULL) {
+            if (visited->map == shortest_path->room->link[i]) {
+                shortest_path->next = malloc(sizeof(shortest_path_t));
+                if (shortest_path->next == NULL)
+                    return NULL;
+                shortest_path = shortest_path->next;
+                shortest_path->room = visited->map;
+                shortest_path->next = NULL;
+                visited->map = (visited->next == NULL) ? NULL : visited->next->map;
+                tmp = visited->next;
+                visited->next = (visited->next == NULL) ? NULL : visited->next->next;
+                if (tmp != NULL)
+                    free(tmp);
+            }
+            visited = visited->next;
+        }
+    }
+    return shortest_path_head;
 }
 
 static
 int execute_bfs(encountered_room_t *visited, room_queue_t *queue,
     char const *end_room, shortest_path_t **shortest_path)
 {
-    if (queue == NULL || queue->map == NULL || queue->map->name == NULL
+    if (queue == NULL || queue->map 
+            == NULL || queue->map->name == NULL
         || queue->map->link == NULL || visited == NULL || end_room == NULL)
         return display_error("Unable to access the room info\n");
     while (queue != NULL) {
@@ -149,7 +157,7 @@ int execute_bfs(encountered_room_t *visited, room_queue_t *queue,
             return SUCCESS;
         queue = queue->next;
     }
-    *shortest_path = retrieve_bfs_shortest_path(*shortest_path, visited, end_room);
+    *shortes_path = retrieve_bfs_shortest_path();
     return FAILURE;
 }
 
