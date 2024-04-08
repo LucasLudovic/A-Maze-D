@@ -94,16 +94,9 @@ int check_linked_room(room_queue_t *queue,
 }
 
 static
-shortest_path_t *shortest_path(char const *start_room, char const *end_room,
-    encountered_room_t *visited)
+void initialize_shortest_path(char const *end_room,
+    encountered_room_t *visited, shortest_path_t *shortest_path)
 {
-    shortest_path_t *shortest_path = malloc(sizeof(shortest_path_t));
-    shortest_path_t *shortest_path_head = shortest_path;
-    encountered_room_t *visited_head = visited;
-    encountered_room_t *tmp = NULL;
-
-    if (shortest_path == NULL)
-        return NULL;
     while (visited != NULL) {
         if (visited->map == NULL) {
             visited = visited->next;
@@ -113,55 +106,95 @@ shortest_path_t *shortest_path(char const *start_room, char const *end_room,
             && shortest_path->room == NULL) {
             shortest_path->room = visited->map;
             visited->map = NULL;
-            visited = visited_head;
             break;
         }
         visited = visited->next;
     }
+}
+
+static
+int add_previous_room(encountered_room_t *visited,
+    shortest_path_t **shortest_path, int index)
+{
+    encountered_room_t *tmp = NULL;
+
+    if (visited->map == (*shortest_path)->room->link[index]) {
+        (*shortest_path)->next = malloc(sizeof(shortest_path_t));
+        if ((*shortest_path)->next == NULL)
+            return FAILURE;
+        (*shortest_path) = (*shortest_path)->next;
+        (*shortest_path)->room = visited->map;
+        (*shortest_path)->next = NULL;
+        visited->map = (visited->next == NULL) ? NULL : visited->next->map;
+        tmp = visited->next;
+        visited->next = (visited->next == NULL) ? NULL : visited->next->next;
+        if (tmp != NULL)
+            free(tmp);
+    }
+    return SUCCESS;
+}
+
+static
+shortest_path_t *parse_shortest_path_link(shortest_path_t *shortest_path,
+    encountered_room_t *visited, char const *start_room, int const index)
+{
+    shortest_path_t *shortest_path_head = shortest_path;
+
+    while (visited != NULL) {
+        if (add_previous_room(visited, &shortest_path, index) == FAILURE)
+            return NULL;
+        if (my_strcmp(shortest_path->room->name, start_room) == 0)
+            return shortest_path_head;
+        visited = visited->next;
+    }
+    return NULL;
+}
+
+static
+shortest_path_t *retrieve_bfs_shortest_path(char const *start_room,
+    char const *end_room, encountered_room_t *visited)
+{
+    shortest_path_t *shortest_path = malloc(sizeof(shortest_path_t));
+    encountered_room_t *visited_head = visited;
+
+    if (shortest_path == NULL)
+        return NULL;
+    initialize_shortest_path(end_room, visited, shortest_path);
     visited = visited_head;
     if (shortest_path->room == NULL || shortest_path->room->link == NULL) {
         display_error("Algorith couldn't find the end_room\n");
         return free(shortest_path), NULL;
     }
     for (size_t i = 0; shortest_path->room->link[i] != NULL; i += 1) {
-        while (visited != NULL) {
-            if (visited->map == shortest_path->room->link[i]) {
-                shortest_path->next = malloc(sizeof(shortest_path_t));
-                if (shortest_path->next == NULL)
-                    return NULL;
-                shortest_path = shortest_path->next;
-                shortest_path->room = visited->map;
-                shortest_path->next = NULL;
-                visited->map = (visited->next == NULL) ? NULL : visited->next->map;
-                tmp = visited->next;
-                visited->next = (visited->next == NULL) ? NULL : visited->next->next;
-                if (tmp != NULL)
-                    free(tmp);
-            }
-            visited = visited->next;
+        if (!parse_shortest_path_link(shortest_path, visited, start_room, i)) {
+            display_error("Unable to return to next room");
+            return NULL;
         }
     }
-    return shortest_path_head;
+    return shortest_path;
 }
 
 static
 int execute_bfs(encountered_room_t *visited, room_queue_t *queue,
     char const *end_room, shortest_path_t **shortest_path)
 {
-    if (queue == NULL || queue->map 
-            == NULL || queue->map->name == NULL
+    char *start_room = NULL;
+
+    if (queue == NULL || queue->map == NULL || queue->map->name == NULL
         || queue->map->link == NULL || visited == NULL || end_room == NULL)
         return display_error("Unable to access the room info\n");
+    start_room = queue->map->name;
     while (queue != NULL) {
         if (check_linked_room(queue, visited, end_room) == SUCCESS)
             return SUCCESS;
         queue = queue->next;
     }
-    *shortes_path = retrieve_bfs_shortest_path();
+    *shortest_path = retrieve_bfs_shortest_path(start_room, end_room, visited);
     return FAILURE;
 }
 
-int get_shortest_path(map_t *map, const char *end_room, shortest_path_t **shortest_path)
+int get_shortest_path(map_t *map, const char *end_room,
+    shortest_path_t **shortest_path)
 {
     encountered_room_t *visited = NULL;
     room_queue_t *queue = NULL;
