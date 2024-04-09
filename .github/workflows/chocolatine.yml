@@ -1,0 +1,79 @@
+name: continous-integration
+
+on:
+  push:
+    branches-ignore: [ga-ignore-*]
+  pull_request:
+    branches-ignore: [ga-ignore-*]
+
+env:
+  MIRROR_URL: git@github.com:EpitechPromo2028/B-DOP-200-BDX-2-1-chocolatine-lucas.ludovic.git
+  EXECUTABLES: clean_str
+
+jobs:
+    check-coding-style:
+        runs-on: ubuntu-latest
+        container:
+            image: ghcr.io/epitech/coding-style-checker:latest
+        steps:
+            - name: Checkout GH Repo
+              uses: actions/checkout@master
+            - name: Run coding-style checker
+              run:  check.sh $(pwd) $(pwd)
+            - name: Report Banana result
+              run: |
+                NB_ERRORS=$(cat coding-style-reports.log | wc -l)
+                if [ $NB_ERRORS -ge 1 ]; then
+                  while IFS= read -r line
+                    do
+                      FILE=$(echo $line | cut -d ':' -f1)
+                      FILE=$(realpath --relative-to=$(pwd) $FILE)
+                      LINE=$(echo $line | cut -d ':' -f2)
+                      ERROR=$(echo $line | cut -d ':' -f3-)
+                    echo "::error file=$FILE,line=$LINE,title=$NB_ERRORS coding style errors found::$ERROR"
+                  done < coding-style-reports.log
+                    exit 1
+                fi
+                  exit 0
+    check-compilation:
+        runs-on: ubuntu-latest
+        needs: [check-coding-style]
+        steps:
+          - name: Checkout Branch
+            uses: actions/checkout@master
+          - name: Compile Repo
+            run:  make
+          - name: Check binary presence
+            run: |
+                if [ ! -f ./${{ env.EXECUTABLES }} ]; then
+                    echo "::error title=Binary
+                    ERROR::Binary not found"
+                    exit 1
+                fi
+                exit 0
+    run-tests:
+        runs-on: ubuntu-latest
+        container: epitechcontent/epitest-docker:latest
+        needs: [check-compilation, check-coding-style]
+        steps:
+            - name: Checkout GH repo
+              uses: actions/checkout@master
+            - name: Compile tests binaries
+              run: make tests_run
+            - name: Run tests
+              run: ./unit_tests
+              timeout-minutes: 2
+    push-mirror:
+        needs: run-tests
+        runs-on: ubuntu-latest
+        if: github.event_name == 'push'
+        steps:
+            - name: Checkout branch
+              uses: actions/checkout@master
+              with:
+                  fetch-depth: 0
+            - name: Mirror
+              uses: pixta-dev/repository-mirroring-action@v1
+              with:
+                  target_repo_url: ${{ env.MIRROR_URL }}
+                  ssh_private_key: ${{ secrets.MY_SSH_KEY }}
