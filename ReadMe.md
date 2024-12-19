@@ -1,6 +1,6 @@
 # Amazed
 
-Amazed is a C project designed to simulate a scenario where a certain number of mice need to traverse through various rooms to reach the exit, ensuring each room is visited by only one mouse at a time. The objective is to reach the exit with the fewest possible moves, utilizing Dijkstra's algorithm for pathfinding.
+Amazed is a C project designed to simulate a scenario where a certain number of mice need to traverse through various rooms to reach the exit, ensuring each room is visited by only one mouse at a time. The objective is to reach the exit with the fewest possible moves, utilizing Breadth-first search algorithm for pathfinding.
 
 ## Input Format
 
@@ -58,7 +58,7 @@ make
 ```
 
 ### Features
-Utilizes Dijkstra's algorithm for optimal pathfinding.
+Utilizes Breadth-first search algorithm for optimal pathfinding.
 Ensures each room is visited by only one mouse at a time.
 Calculates the shortest path for mice to reach the exit.
 Input file specifies the number of mice, rooms, room connections, tunnels, and moves made by mice.
